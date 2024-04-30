@@ -12,3 +12,6 @@ docs/
 
 # Dotenv file
 .env
+
+fixedStaking.standard.json
+proxy.standard.json
