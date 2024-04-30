@@ -5,18 +5,17 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IWBNB.sol";
 
 contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     struct Pool {
-        IERC20Upgradeable token;
+        IERC20 token;
         uint32 endDay;
         uint32 lockDayPercent;
-        uint32 boostDayPercent;
         uint32 unlockDayPercent;
         uint32 lockPeriod; // Multiples of 3
         uint32 withdrawalCut1;
@@ -26,7 +25,6 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         uint128 minDeposit;
         uint128 totalDeposited;
         uint128 maxPoolAmount;
-        uint128 minBoostAmount;
     }
     Pool[] public pools;
     address public earn;
@@ -58,8 +56,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     event Harvest(address indexed user, uint256 poolIndex, address indexed token, uint128 amount);
     event TokenWithdraw(address indexed token, uint256 amount, address indexed to);
 
-    address public cakePool;
-    address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public constant WBNB = 0x441325a0e1D5aC0d64C9cc790FcAbf9c5416a4a1;
     address private earn_;
     uint128 public constant PERCENT_BASE = 1000_000_000;
 
@@ -68,14 +65,13 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         _disableInitializers();
     }
 
-    function initialize(address _cakePool, address _earn) public initializer {
-        require(_cakePool != address(0) && _earn != address(0), "Address cant be zero");
+    function initialize(address owner, address _earn) public initializer {
+        require(_earn != address(0), "Address cant be zero");
 
-        __Ownable_init();
+        __Ownable_init(owner);
         __ReentrancyGuard_init();
         __Pausable_init();
 
-        cakePool = _cakePool;
         earn = _earn;
     }
 
@@ -98,7 +94,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         require(_poolIndex < pools.length, "Index out of bound");
         require(_pool.maxDeposit >= _pool.minDeposit, "Incorrect deposit limit");
         uint128 _totalDeposited = pools[_poolIndex].totalDeposited;
-        IERC20Upgradeable _token = pools[_poolIndex].token;
+        IERC20 _token = pools[_poolIndex].token;
         pools[_poolIndex] = _pool;
         pools[_poolIndex].totalDeposited = _totalDeposited; // Save total deposited when upgrade pool
         pools[_poolIndex].token = _token; // Cant change token
@@ -123,11 +119,6 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     function setEarn(address _newEarn) external onlyOwner {
         require(_newEarn != address(0), "Cant be zero address");
         earn = _newEarn;
-    }
-
-    function setCakePool(address _newCakePool) external onlyOwner {
-        require(_newCakePool != address(0), "Cant be zero address");
-        cakePool = _newCakePool;
     }
 
     function pause() external onlyOwner {
@@ -207,12 +198,11 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         if (WBNB == address(_pool.token)) {
             if (msg.value > 0) {
                 require(_amount == msg.value, "Incorrect amount");
+                IWBNB(WBNB).deposit{value: msg.value}();
+                _pool.token.safeTransferFrom(msg.sender, earn, _amount);
             } else {
-                _pool.token.safeTransferFrom(msg.sender, address(this), _amount);
-                IWBNB(WBNB).withdraw(_amount);
+                _pool.token.safeTransferFrom(msg.sender, earn, _amount);
             }
-            (bool success, ) = earn.call{value: _amount}(new bytes(0));
-            require(success, "Failed to send BNB");
         } else {
             _pool.token.safeTransferFrom(msg.sender, earn, _amount);
         }
@@ -241,15 +231,9 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         Pool memory _pool = pools[_poolIndex];
         UserInfo storage _userInfo = userInfo[msg.sender][_poolIndex];
         require(_userInfo.userDeposit > 0, "User has zero deposit");
-
-        (uint32 lockDays, uint32 unlockDays) = getMultiplier(
-            _userInfo.lastDayAction,
-            _pool.endDay,
-            _pool.lockPeriod
-        );
         
-        uint128 lockInterest = (_userInfo.userDeposit * _pool.lockDayPercent * lockDays) / PERCENT_BASE;
-        uint128 unlockInterest = (_userInfo.userDeposit * _pool.unlockDayPercent * unlockDays) / PERCENT_BASE;
+        uint128 lockInterest = 0;
+        uint128 unlockInterest = 0;
         uint128 totalInterest = _userInfo.accrueInterest + lockInterest + unlockInterest;
         uint128 accumAmount = _userInfo.userDeposit + totalInterest;
 
@@ -258,7 +242,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         uint128 amount;
         if (currentDay < _pool.endDay) {
             uint32 days_ = currentDay - _userInfo.lastDayAction;
-            require(days_ > poolLockPeriodUnit, "No withdrawal allowed");
+            //require(days_ > poolLockPeriodUnit, "No withdrawal allowed");
             if (days_ <= poolLockPeriodUnit * 2) {
                 amount = (_userInfo.userDeposit * _pool.withdrawalCut1) / 10000 + totalInterest;
             } else if (days_ <= poolLockPeriodUnit * 3) {
@@ -322,13 +306,20 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     }
 
     function withdrawToken(
-        IERC20Upgradeable _token,
+        IERC20 _token,
         uint256 _amount,
         address _to
     ) external onlyOwner {
-        require(address(_token) != address(0) && _to != address(0), "Cant be zero address");
-        _token.safeTransfer(_to, _amount);
-        emit TokenWithdraw(address(_token), _amount, _to);
+        require( _to != address(0), "Cant be zero address");
+        if (address(_token) == address(0)) {
+            (bool success, ) = msg.sender.call{value: _amount}(new bytes(0));
+            require(success, "Failed to send BNB");
+            emit TokenWithdraw(address(_token), _amount, _to);
+        }else {
+            _token.safeTransfer(_to, _amount);
+            emit TokenWithdraw(address(_token), _amount, _to);
+        }
+
     }
 
     function getMultiplier(
