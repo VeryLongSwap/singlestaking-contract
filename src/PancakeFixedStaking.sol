@@ -199,7 +199,6 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
             if (msg.value > 0) {
                 require(_amount == msg.value, "Incorrect amount");
                 IWBNB(WBNB).deposit{value: msg.value}();
-                _pool.token.safeTransferFrom(msg.sender, earn, _amount);
             } else {
                 _pool.token.safeTransferFrom(msg.sender, earn, _amount);
             }
