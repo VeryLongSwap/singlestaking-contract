@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.23;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -11,7 +11,7 @@ import "./interfaces/IWBNB.sol";
 
 contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
-
+    uint256 private constant BASIS_POINTS_DENOMINATOR = 10000;
     struct Pool {
         IERC20 token;
         uint32 endDay;
@@ -45,7 +45,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     mapping(address => mapping(uint256 => uint32)) public userPendingWithdraw; // User pending withdraw flag: user address => pool id => day, for offchain reference only
     mapping(uint32 => mapping(uint256 => uint128)) public dailyDeposit; // Daily deposit of pools: day => pool id => balance, for offchain reference only
     mapping(uint32 => mapping(uint256 => uint128)) public dailyWithdraw; // Daily withdraw of pools: day => pool id => balance, for offchain reference only
-    mapping(address => mapping(address => uint256)) public user;
+    // mapping(address => mapping(address => uint256)) public user;
 
     event PendingWithdraw(address indexed user, uint256 poolIndex, uint128 accumAmount);
     event PoolAdded(address indexed token, uint32 lockPeriod, uint256 poolIndex);
@@ -56,9 +56,9 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     event Harvest(address indexed user, uint256 poolIndex, address indexed token, uint128 amount);
     event TokenWithdraw(address indexed token, uint256 amount, address indexed to);
 
-    address public constant WBNB = 0x441325a0e1D5aC0d64C9cc790FcAbf9c5416a4a1;
+    address private constant WBNB = 0x441325a0e1D5aC0d64C9cc790FcAbf9c5416a4a1;
     address private earn_;
-    uint128 public constant PERCENT_BASE = 1000_000_000;
+    uint128 private constant PERCENT_BASE = 1000_000_000;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -146,7 +146,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
         count = count == 0 ? getCurrentDay() - firstDay + 1 : count;
         _deposit = new uint128[](count);
         _withdraw = new uint128[](count);
-        for (uint32 i = 0; i < count; i++) {
+        for (uint32 i = 0; i < count; ++i) {
             _deposit[i] = dailyDeposit[firstDay + i][poolId];
             _withdraw[i] = dailyWithdraw[firstDay + i][poolId];
         }
@@ -243,9 +243,9 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
             uint32 days_ = currentDay - _userInfo.lastDayAction;
             //require(days_ > poolLockPeriodUnit, "No withdrawal allowed");
             if (days_ <= poolLockPeriodUnit * 2) {
-                amount = (_userInfo.userDeposit * _pool.withdrawalCut1) / 10000 + totalInterest;
+                amount = (_userInfo.userDeposit * _pool.withdrawalCut1) / BASIS_POINTS_DENOMINATOR + totalInterest;
             } else if (days_ <= poolLockPeriodUnit * 3) {
-                amount = (_userInfo.userDeposit * _pool.withdrawalCut2) / 10000 + totalInterest;
+                amount = (_userInfo.userDeposit * _pool.withdrawalCut2) / BASIS_POINTS_DENOMINATOR + totalInterest;
             }
         }
         
@@ -311,10 +311,9 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     ) external onlyOwner {
         require( _to != address(0), "Cant be zero address");
         if (address(_token) == address(0)) {
-            (bool success, ) = msg.sender.call{value: _amount}(new bytes(0));
-            require(success, "Failed to send BNB");
+            payable(_to).transfer(_amount);
             emit TokenWithdraw(address(_token), _amount, _to);
-        }else {
+        } else {
             _token.safeTransfer(_to, _amount);
             emit TokenWithdraw(address(_token), _amount, _to);
         }
