@@ -11,7 +11,7 @@ import "./interfaces/IWBNB.sol";
 
 contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
-    uint256 private constant BASIS_POINTS_DENOMINATOR = 10000;
+    uint128 private constant BASIS_POINTS_DENOMINATOR = 10000;
     struct Pool {
         IERC20 token;
         uint32 endDay;
@@ -56,7 +56,7 @@ contract PancakeFixedStaking is Initializable, OwnableUpgradeable, ReentrancyGua
     event Harvest(address indexed user, uint256 poolIndex, address indexed token, uint128 amount);
     event TokenWithdraw(address indexed token, uint256 amount, address indexed to);
 
-    address private constant WBNB = 0x441325a0e1D5aC0d64C9cc790FcAbf9c5416a4a1;
+    address private constant WBNB = 0xE9CC37904875B459Fa5D0FE37680d36F1ED55e38;
     address private earn_;
     uint128 private constant PERCENT_BASE = 1000_000_000;
 

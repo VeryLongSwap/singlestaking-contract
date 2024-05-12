@@ -6,14 +6,19 @@ import "../src/PancakeFixedStaking.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract CounterTest is Test {
-    PancakeFixedStaking public pancakeFixedStaking;
-    TransparentUpgradeableProxy public transparentProxy;
+    address deployer = 0xDD47792c1A9f8F12a44c299f1be85FFD72A4B746;
+    address owner = 0x0f7bF2e6BEbf3d352405B0f855d4B6fC6Fe50b3F;
+    PancakeFixedStaking pancakeFixedStaking;
+    TransparentUpgradeableProxy proxy;
     function setUp() public {
+        vm.startPrank(deployer);
         pancakeFixedStaking = new PancakeFixedStaking();
-        transparentProxy = new TransparentUpgradeableProxy(address(pancakeFixedStaking), address(this), "");
+        proxy = new TransparentUpgradeableProxy(address(pancakeFixedStaking), deployer, "");
+        PancakeFixedStaking(payable(address(proxy))).initialize(owner, address(proxy));
+        vm.stopPrank();
     }
 
-    function test_checkowner() public {
-        console.log(pancakeFixedStaking.owner());
+    function test_checkOwner() view public {
+        assertEq(PancakeFixedStaking(payable(address(proxy))).owner(), owner);
     }
 }
