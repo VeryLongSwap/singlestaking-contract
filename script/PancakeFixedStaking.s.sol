@@ -5,11 +5,11 @@ import {Script, console} from "forge-std/Script.sol";
 import { PancakeFixedStaking } from "../src/PancakeFixedStaking.sol";
 import { TransparentUpgradeableProxy } from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract CounterScript is Script {
+contract PancakeFixedStakingScript is Script {
     // set deployer address
-    address deployer = 0xe71636e8A0a905Dfb863c2C76cf9E84428b62285;
+    address deployer = 0x944C6C8882012CcD4FFd2911a7F1fDC520c9a561;
     // set owner address
-    address owner = 0xdD582e30e986a1a8d38cfd90c1eBd97DDcf8ab96;
+    address owner = 0xd6aFA58EE6Fa908bC5321c92704Af23A607cAAea;
     PancakeFixedStaking pancakeFixedStaking;
     TransparentUpgradeableProxy proxy;
     function setUp() public {

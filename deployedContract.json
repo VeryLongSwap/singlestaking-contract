@@ -1,0 +1,7 @@
+{
+    "astar" : {
+        "PancakeFixedStaking" : "0x14c5D8835519f7C426826d8a0F5F7FC6FddE54e4",
+        "proxyAdmin": "0xd6aFA58EE6Fa908bC5321c92704Af23A607cAAea",
+        "proxy": "0x1AbF3A81aeb18a0EF9F5e319d7ec7483B45456fa"
+    }
+}
