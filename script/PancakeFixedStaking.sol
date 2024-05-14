@@ -6,8 +6,10 @@ import { PancakeFixedStaking } from "../src/PancakeFixedStaking.sol";
 import { TransparentUpgradeableProxy } from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract CounterScript is Script {
-    address deployer = 0xDD47792c1A9f8F12a44c299f1be85FFD72A4B746;
-    address owner = 0x0f7bF2e6BEbf3d352405B0f855d4B6fC6Fe50b3F;
+    // set deployer address
+    address deployer = 0xe71636e8A0a905Dfb863c2C76cf9E84428b62285;
+    // set owner address
+    address owner = 0xdD582e30e986a1a8d38cfd90c1eBd97DDcf8ab96;
     PancakeFixedStaking pancakeFixedStaking;
     TransparentUpgradeableProxy proxy;
     function setUp() public {
